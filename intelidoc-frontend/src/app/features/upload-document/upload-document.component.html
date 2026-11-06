@@ -1,0 +1,128 @@
+<section class="uploader">
+  <header class="uploader__header">
+    <p class="uploader__kicker">Intelidoc</p>
+    <h1>Sube tu documento técnico</h1>
+    <p>Arrastra un PDF o un archivo de texto, o selecciónalo desde tu equipo.</p>
+  </header>
+
+  <div
+    class="dropzone"
+    [class.is-dragover]="isDragOver()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <div class="dropzone__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 16V5M12 5l-4 4M12 5l4 4"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M5 16.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+        />
+      </svg>
+    </div>
+
+    <p class="dropzone__title">Suelta el documento aquí</p>
+    <p class="dropzone__hint">PDF o texto plano, hasta el límite del servidor</p>
+
+    <label class="dropzone__button">
+      Examinar archivos
+      <input
+        type="file"
+        accept=".pdf,.txt,application/pdf,text/plain"
+        [disabled]="isLoading()"
+        (change)="onFileSelected($event)"
+      />
+    </label>
+  </div>
+
+  <!-- Estado de carga usando la señal computada isLoading() -->
+  @if (isLoading()) {
+    <div class="feedback feedback--loading" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      <p>🧠 Llama 3 está analizando la arquitectura de tu documento en local…</p>
+    </div>
+  }
+
+  <!-- Estado de Éxito usando la señal computada isSuccess() y leyendo analysisResult() -->
+  @if (isSuccess() && analysisResult(); as result) {
+    <article class="result-card">
+      <p class="result-card__label">Documento recibido</p>
+      <h2>{{ result.filename }}</h2>
+      <dl>
+        <div>
+          <dt>Tamaño</dt>
+          <dd>{{ (result.size / 1024) | number: '1.0-1' }} KB</dd>
+        </div>
+        <div>
+          <dt>Tipo</dt>
+          <dd>{{ result.contentType }}</dd>
+        </div>
+      </dl>
+      <p class="result-card__message">{{ result.message }}</p>
+
+      <!-- 🤖 Informe del Tech Lead generado por tu Ollama Local -->
+      @if (result.analysis) {
+        <div class="ai-analysis" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e2e8f0; text-align: left;">
+          <h3 style="color: #1a202c; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.2rem;">
+            <span>🤖</span> Informe del Tech Lead (Ollama AI)
+          </h3>
+
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: #4a5568; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Resumen Ejecutivo</h4>
+            <p style="color: #2d3748; line-height: 1.6; background: #f7fafc; padding: 1rem; border-radius: 6px; margin: 0;">{{ result.analysis.summary }}</p>
+          </div>
+
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: #4a5568; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Tipo de Arquitectura</h4>
+            <span style="background: #e2e8f0; color: #2d3748; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 500; font-size: 0.9rem; display: inline-block;">
+              {{ result.analysis.architectureType }}
+            </span>
+          </div>
+
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: #4a5568; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Tecnologías Clave Detectadas</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+              @for (tech of result.analysis.detectedTechnologies; track tech) {
+                <span style="background: #ebf8ff; color: #2b6cb0; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">
+                  {{ tech }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: #9b2c2c; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Riesgos Potenciales</h4>
+            <ul style="margin: 0.5rem 0 0 1.25rem; color: #2d3748; line-height: 1.5;">
+              @for (risk of result.analysis.potentialRisks; track risk) {
+                <li style="margin-bottom: 0.25rem;">{{ risk }}</li>
+              }
+            </ul>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <h4 style="color: #4a5568; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Recomendaciones</h4>
+            <p style="color: #4a5568; font-style: italic; border-left: 3px solid #cbd5e0; padding-left: 1rem; line-height: 1.5; margin: 0;">
+              {{ result.analysis.recommendations }}
+            </p>
+          </div>
+        </div>
+      }
+    </article>
+  }
+
+  <!-- Estado de Error usando la señal computada isError() -->
+  @if (isError()) {
+    <div class="feedback feedback--error" role="alert">
+      <p>❌ {{ errorMessage() }}</p>
+    </div>
+  }
+</section>
