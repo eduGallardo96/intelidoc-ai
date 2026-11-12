@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: ./intelidoc-backend
+      dockerfile: Dockerfile
+    container_name: intelidoc-backend
+    ports:
+      - "8080:8080"
+    environment:
+      # host.docker.internal permite que el contenedor hable con tu Ollama local en Windows
+      - SPRING_AI_OLLAMA_BASE_URL=http://docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - intelidoc-net
+
+  frontend:
+    build:
+      context: ./intelidoc-frontend
+      dockerfile: Dockerfile
+    container_name: intelidoc-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    networks:
+      - intelidoc-net
+
+networks:
+  intelidoc-net:
+    driver: bridge
