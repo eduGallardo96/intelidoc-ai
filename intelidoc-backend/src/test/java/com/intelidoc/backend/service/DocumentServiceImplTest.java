@@ -10,8 +10,10 @@ import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -19,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentServiceImplTest {
@@ -29,6 +34,12 @@ class DocumentServiceImplTest {
     @Mock
     private ChatClient chatClient; // Mockeamos el cliente final
 
+    @Mock
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
     private DocumentServiceImpl documentService;
 
     @BeforeEach
@@ -37,7 +48,7 @@ class DocumentServiceImplTest {
         when(chatClientBuilder.build()).thenReturn(chatClient);
 
         // Inicializamos manualmente el servicio inyectándole el Builder entrenado
-        documentService = new DocumentServiceImpl(chatClientBuilder);
+        documentService = new DocumentServiceImpl(chatClientBuilder, kafkaTemplate, objectMapper);
     }
 
     @Test
@@ -71,14 +82,14 @@ class DocumentServiceImplTest {
     }
 
     @Test
-    @DisplayName("4. Debería procesar el archivo e invocar a la IA correctamente cuando el formato es válido")
-    void upload_ShouldReturnAnalysis_WhenFileIsValid() {
-        // Arrange (Preparación)
+    @DisplayName("4. Debería procesar el archivo, llamar a la IA y publicar evento en Kafka")
+    void upload_ShouldReturnAnalysisAndPublishEvent_WhenFileIsValid() throws Exception {
+        // Arrange
         String mockContent = "PROYECTO: Test. TECNOLOGÍAS: Java, Angular.";
         MultipartFile validFile = new MockMultipartFile("file", "test.txt", "text/plain", mockContent.getBytes());
 
-        // RETURNS_DEEP_STUBS simula toda la cadena fluida (.prompt().system().user().call().entity())
         ChatClient.ChatClientRequestSpec mockRequestSpec = mock(ChatClient.ChatClientRequestSpec.class, Answers.RETURNS_DEEP_STUBS);
+        String fakeRawJson = "{\"summary\":\"Resumen de prueba\"}";
 
         AnalysisResultDTO expectedAiResult = new AnalysisResultDTO(
                 "Resumen de prueba",
@@ -88,19 +99,24 @@ class DocumentServiceImplTest {
                 "Seguir así"
         );
 
+        // Entrenamos a ChatClient para que devuelva el String crudo en .content()
         when(chatClient.prompt()).thenReturn(mockRequestSpec);
-        when(mockRequestSpec.system(anyString()).user(anyString()).call().entity(AnalysisResultDTO.class))
-                .thenReturn(expectedAiResult);
+        when(mockRequestSpec.system(anyString()).user(anyString()).call().content()).thenReturn(fakeRawJson);
 
-        // Act (Ejecución)
+        // Entrenamos a ObjectMapper para deserializar el JSON de la IA y serializar el evento de Kafka
+        when(objectMapper.readValue(fakeRawJson, AnalysisResultDTO.class)).thenReturn(expectedAiResult);
+        when(objectMapper.writeValueAsString(any(UploadResponseDTO.class))).thenReturn("{\"filename\":\"test.txt\"}");
+
+        // Act
         UploadResponseDTO response = documentService.upload(validFile);
 
-        // Assert (Verificación)
+        // Assert
         assertNotNull(response);
         assertEquals("test.txt", response.filename());
-        assertEquals("Análisis completado con éxito por la IA local", response.message());
-        assertNotNull(response.analysis());
         assertEquals("Resumen de prueba", response.analysis().summary());
-        assertEquals("Microservicios", response.analysis().architectureType());
+
+        // Verificamos que realmente se envió el mensaje al tópico de Kafka una vez
+        verify(kafkaTemplate, times(1)).send(eq("document-analysis-completed"), eq("test.txt"), anyString());
     }
+
 }

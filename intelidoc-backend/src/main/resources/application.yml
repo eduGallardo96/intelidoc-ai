@@ -2,6 +2,17 @@ spring:
   application:
     name: intelidoc-backend
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: intelidoc-audit-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
   datasource:
     url: jdbc:h2:mem:intelidocdb;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
@@ -27,7 +38,8 @@ spring:
       base-url: http://localhost:11434
       chat:
         options:
-          model: llama3 # El modelo que acabamos de descargar en tu ordenador
+          model: llama3
+          format: json # Obliga a Ollama a nivel de motor a responder solo JSON válido
 
 server:
   port: 8080

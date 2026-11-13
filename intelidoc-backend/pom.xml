@@ -75,6 +75,12 @@
             <version>2.0.0-RC2</version> <!-- Forzamos versión compatible con Spring Boot 4/Spring Framework 7 -->
         </dependency>
 
+        <!-- Arquitectura Dirigida por Eventos (Event-Driven Architecture) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
